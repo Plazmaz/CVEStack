@@ -11,13 +11,14 @@ from query import Query
 
 
 class CVEFeedGenerator:
-    desired_strings = []
-    last_update = None
 
-    def __init__(self, cve_feed_url='https://nvd.nist.gov/feeds/xml/cve/misc/nvd-rss.xml', padding=True,
+    def __init__(self, cve_feed_url='https://nvd.nist.gov/feeds/xml/cve/misc/nvd-rss.xml',
+                 left_padding=True, right_padding=False,
                  strip_spaces=False):
+        self.desired_strings = []
+        self.right_padding = right_padding
         self.strip_spaces = strip_spaces
-        self.padding = padding
+        self.padding = left_padding
         self.cve_feed_url = cve_feed_url
         self._init_feed_gen()
 
@@ -37,7 +38,7 @@ class CVEFeedGenerator:
             for match in self.desired_strings:
                 body = entry['summary'].lower()
 
-                if match.query.lower() in body:
+                if match.query in body:
                     has_all_requirments = True
                     for extra in match.required_tags:
                         if not extra.lower() in body:
@@ -61,10 +62,10 @@ class CVEFeedGenerator:
         return rss
 
 
-def get_cve_generator(padding=True, strip_spaces=False):
-    cve_feed_gen = CVEFeedGenerator(padding=padding, strip_spaces=strip_spaces)
+def get_cve_generator(pattern_file, left_padding=True, right_padding=False, strip_spaces=False):
+    cve_feed_gen = CVEFeedGenerator(left_padding=left_padding, right_padding=right_padding, strip_spaces=strip_spaces)
 
-    with open(args.pattern_file) as f:
+    with open(pattern_file) as f:
         requirements_contents = re.split('\r?\n', f.read())
         # Generates required version string
         requirements_output = []
@@ -81,9 +82,11 @@ def get_cve_generator(padding=True, strip_spaces=False):
                 continue
             if len(requirement) > 1:
                 cve_feed_gen.add_desired_string(Query(requirement[0], required_tags=requirement[1:],
-                                                      left_padded=padding, strip_padding=strip_spaces))
+                                                      left_padded=left_padding, right_padded=right_padding,
+                                                      strip_padding=strip_spaces))
             else:
-                cve_feed_gen.add_desired_string(Query(requirement[0], left_padded=padding, strip_padding=strip_spaces))
+                cve_feed_gen.add_desired_string(Query(requirement[0], left_padded=left_padding, right_padded=right_padding,
+                                                      strip_padding=strip_spaces))
 
     return cve_feed_gen
 
@@ -96,6 +99,8 @@ if __name__ == '__main__':
                            help='Sets if spaces should be stripped from patterns (Defaults to false)')
     argparser.add_argument('--left-pad', '-lp', default=True, dest='left_pad_patterns', action='store_true',
                            help='Sets if patterns should be prefixed with a left space (Defaults to true)')
+    argparser.add_argument('--right-pad', '-rp', default=False, dest='right_pad_patterns', action='store_true',
+                           help='Sets if patterns should be suffixed with a right space (Defaults to false)')
     argparser.add_argument('--port', '-p', default=8088, dest='port', type=int,
                            help='Sets the listening port (defaults to 8088)')
     args = argparser.parse_args()
@@ -109,8 +114,8 @@ if __name__ == '__main__':
             self.send_header("Content-Type", "application/rss+xml")
             self.end_headers()
             now = datetime.datetime.now()
-            if self.last_update is None or (now - FeedHandler.last_update).total_seconds() > 30:
-                FeedHandler.cve_rss = (get_cve_generator(padding=args.left_pad_patterns, strip_spaces=args.strip_spaces)
+            if self.last_update is None or (now - FeedHandler.last_update).total_seconds() > 10:
+                FeedHandler.cve_rss = (get_cve_generator(args.pattern_file, left_padding=args.left_pad_patterns, right_padding=args.right_pad_patterns, strip_spaces=args.strip_spaces)
                                        .generate_feed())
                 self.log_message("%s", "Reloaded CVE feeds and patterns.")
                 self.wfile.write(FeedHandler.cve_rss)
@@ -118,8 +123,6 @@ if __name__ == '__main__':
             else:
                 if FeedHandler.cve_rss:
                     self.wfile.write(FeedHandler.cve_rss)
-                else:
-                    FeedHandler.last_update = None
 
 
     server = HTTPServer(('localhost', args.port), FeedHandler)
