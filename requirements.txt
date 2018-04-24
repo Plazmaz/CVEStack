@@ -2,3 +2,4 @@ feedparser==5.2.1
 dicttoxml==1.7.4
 feedgen
 pyyaml
+future==0.16.0

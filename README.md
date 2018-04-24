@@ -1,5 +1,4 @@
 ## CVEStack 
-#### Please note that this repo only supports Python 3 for now.
 This is a quick little utility to filter the CVE feeds such as [NVD Data Feeds](https://nvd.nist.gov/vuln/data-feeds) for various elements within your stack, then rebroadcasts the reduced feed on the specified port (defaults to 8088) It supports a pip-style format. For instance, this file:
 ```
 linux

@@ -16,8 +16,6 @@ class CVEFeedGenerator:
     def __init__(self, config):
         self.config = config
         self.desired_strings = []
-        self.right_padding = config.get('right_padding')
-        self.left_padding = config.get('left_padding')
         self.strip_spaces = config.get('strip_spaces')
         self.cve_feed_urls = config.get('feed_lists')
         self._init_feed_gen()
