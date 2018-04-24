@@ -125,7 +125,7 @@ if __name__ == '__main__':
                     self.wfile.write(FeedHandler.cve_rss)
 
 
-    server = HTTPServer(('localhost', args.port), FeedHandler)
+    server = HTTPServer(('', args.port), FeedHandler)
     try:
         server.serve_forever()
     except KeyboardInterrupt:
