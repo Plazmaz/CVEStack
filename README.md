@@ -1,12 +1,13 @@
 ## CVEStack 
 #### Please note that this repo only supports Python 3 for now.
-This is a quick little utility to filter the [NVD Data Feeds](https://nvd.nist.gov/vuln/data-feeds) for various elements within your stack, then rebroadcasts the reduced feed on the specified port (defaults to 8088) It supports a pip-style format. For instance, this file:
+This is a quick little utility to filter the CVE feeds such as [NVD Data Feeds](https://nvd.nist.gov/vuln/data-feeds) for various elements within your stack, then rebroadcasts the reduced feed on the specified port (defaults to 8088) It supports a pip-style format. For instance, this file:
 ```
 linux
 wordpress
 ````
-
-Produces an RSS-style feed for all CVEs returned matching the keywords `linux` or `wordpress`. You could also require a version number. **Please note this might return false negatives. NVD does not provide formal version data.**. 
+Produces an RSS-style feed for all CVEs returned matching the keywords `linux` or `wordpress`. 
+You can use `__` to determine left or right padding on a per-pattern basis. For instance, `__py` would match ` testpy`, but not `testpy `. Similarly, `py__` would match `testpy `, but not ` testpy`.
+You could also require a version number. **Please note this might return false negatives. NVD does not provide formal version data.**. 
 You can use this feature by doing something like:
 ```
 linux==4.13
@@ -43,17 +44,4 @@ Which would generate this feed:
 Versus just `linux`, which would generate a much larger feed.  
 *Note the pattern matched is displayed in the <comments> tag*
 
-Usage:
-```
-  -h, --help            show the help message and exists
-  --pattern-file PATTERN_FILE, -f PATTERN_FILE
-                        Sets the file to pull patterns from (defaults to
-                        ".dependencies.txt")
-  --strip-spaces, -s    Sets if spaces should be stripped from patterns
-                        (Defaults to false)
-  --left-pad, -lp       Sets if patterns should be prefixed with a left space
-                        (Defaults to true)
-  --right-pad, -rp      Sets if patterns should be suffixed with a right space
-                        (Defaults to false)
-  --port PORT, -p PORT  Sets the listening port (defaults to 8088)
-```
+The example config pulls from nvd and seclists. It binds to localhost by default.

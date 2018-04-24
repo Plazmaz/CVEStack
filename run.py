@@ -33,9 +33,11 @@ class CVEFeedGenerator:
         self.desired_strings.append(string)
 
     def generate_feed(self):
+        found_titles = []
         for cve_feed_url in self.cve_feed_urls:
             parsed_feed = feedparser.parse(cve_feed_url)
             for entry in parsed_feed.entries:
+                matches = []
                 for match in self.desired_strings:
                     full_text = entry['title'].lower() + '\n' + entry['summary'].lower()
 
@@ -47,15 +49,18 @@ class CVEFeedGenerator:
 
                         if not has_all_requirments:
                             continue
+                        matches.append(match.query.lower().strip())
+                if len(matches) == 0:
+                    continue
 
-                        fe = self.fg.add_entry()
-                        fe.id(entry['link'])
-                        fe.link(href=entry['link'])
-                        fe.description(description=entry.get('description'))
-                        fe.title(entry['title'])
-                        fe.summary(entry['summary'])
-                        fe.comments("CVEStack: Matches '{}'".format(match.query.lower().strip()))
-                        fe.updated(datetime.datetime(*entry['updated_parsed'][:7], tzinfo=datetime.tzinfo()))
+                fe = self.fg.add_entry()
+                fe.id(entry['link'])
+                fe.link(href=entry['link'])
+                fe.description(description=entry.get('description'))
+                fe.title(entry['title'])
+                fe.summary(entry['summary'])
+                fe.comments("CVEStack: Matches '{}'".format(', '.join(matches)))
+                fe.updated(datetime.datetime(*entry['updated_parsed'][:7], tzinfo=datetime.tzinfo()))
         rss = self.fg.rss_str(pretty=True)
 
         # re-init/clear the feed gen
@@ -65,8 +70,6 @@ class CVEFeedGenerator:
 
 def get_cve_generator(config):
     cve_feed_gen = CVEFeedGenerator(config)
-    left_padding = config.get('left_padding')
-    right_padding = config.get('right_padding')
     strip_spaces = config.get('strip_spaces')
     pattern_file = config.get('pattern_file')
     
@@ -85,6 +88,8 @@ def get_cve_generator(config):
         for requirement in requirements_output:
             if not requirement or len(requirement) == 0:
                 continue
+            left_padding = requirement[0].startswith('__')
+            right_padding = requirement[0].endswith('__')
             if len(requirement) > 1:
                 cve_feed_gen.add_desired_string(Query(requirement[0], required_tags=requirement[1:],
                                                       left_padded=left_padding, right_padded=right_padding,

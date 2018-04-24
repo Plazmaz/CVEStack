@@ -1,7 +1,6 @@
 # Settings for the rebroadcasted feed
 rebroadcast_title: "CVEFeed Vulnerability Feed"
 rebroadcast_description: "Lists known vulnerabilities matching filters"
-# You should probably changes these.
 rebroadcast_self: https://web.nvd.nist.gov/view/vuln/search
 rebroadcast_id: https://nvd.nist.gov/feeds/xml/cve/misc/nvd-rss.xml
 
@@ -12,12 +11,9 @@ feed_lists:
 
 # The file to pull patterns from
 pattern_file: '.dependencies.txt'
-# Should we strip spaces? (increases false positives)
+
+# Should we strip spaces? (may increase false positives)
 strip_spaces: false
-# Should we pad with a left space? (increases false negatives)
-left_padding: false
-# Should we pad with a right space? (increases false negatives)
-right_padding: false
 
 ### Server broadcast settings ###
 # Port to rebroadcast the feed on
