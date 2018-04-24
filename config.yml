@@ -1,0 +1,20 @@
+# Settings for the rebroadcasted feed
+rebroadcast_title: "CVEFeed Vulnerability Feed"
+rebroadcast_description: "Lists known vulnerabilities matching filters"
+# You should probably changes these.
+rebroadcast_self: https://web.nvd.nist.gov/view/vuln/search
+rebroadcast_id: https://nvd.nist.gov/feeds/xml/cve/misc/nvd-rss.xml
+
+# Feeds to pull from.
+feed_lists:
+    - https://nvd.nist.gov/feeds/xml/cve/misc/nvd-rss.xml
+    - http://seclists.org/rss/bugtraq.rss
+
+pattern_file: '.dependencies.txt'
+strip_spaces: false
+left_padding: false
+right_padding: false
+port: 8088
+
+# Defaults to localhost, change to '' to listen on all interfaces
+listening_host: 'localhost'

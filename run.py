@@ -1,4 +1,5 @@
 import re
+import yaml
 
 import argparse
 import datetime
@@ -12,49 +13,49 @@ from query import Query
 
 class CVEFeedGenerator:
 
-    def __init__(self, cve_feed_url='https://nvd.nist.gov/feeds/xml/cve/misc/nvd-rss.xml',
-                 left_padding=True, right_padding=False,
-                 strip_spaces=False):
+    def __init__(self, config):
+        self.config = config
         self.desired_strings = []
-        self.right_padding = right_padding
-        self.strip_spaces = strip_spaces
-        self.padding = left_padding
-        self.cve_feed_url = cve_feed_url
+        self.right_padding = config.get('right_padding')
+        self.left_padding = config.get('left_padding')
+        self.strip_spaces = config.get('strip_spaces')
+        self.cve_feed_urls = config.get('feed_lists')
         self._init_feed_gen()
 
     def _init_feed_gen(self):
         self.fg = FeedGenerator()
-        self.fg.link(href='https://web.nvd.nist.gov/view/vuln/search', rel='self')
-        self.fg.title('National Vulnerability Database')
-        self.fg.description('National Vulnerability Database')
-        self.fg.id('https://dylankatz.com/nvd-sorted.xml')
+        self.fg.link(href=self.config.get('rebroadcast_self'), rel='self')
+        self.fg.title(self.config.get('rebroadcast_title'))
+        self.fg.description(self.config.get('rebroadcast_description'))
+        self.fg.id(self.config.get('rebroadcast_id`'))
 
     def add_desired_string(self, string):
         self.desired_strings.append(string)
 
     def generate_feed(self):
-        parsed_feed = feedparser.parse(self.cve_feed_url)
-        for entry in parsed_feed.entries:
-            for match in self.desired_strings:
-                body = entry['summary'].lower()
+        for cve_feed_url in self.cve_feed_urls:
+            parsed_feed = feedparser.parse(cve_feed_url)
+            for entry in parsed_feed.entries:
+                for match in self.desired_strings:
+                    full_text = entry['title'].lower() + '\n' + entry['summary'].lower()
 
-                if match.query in body:
-                    has_all_requirments = True
-                    for extra in match.required_tags:
-                        if not extra.lower() in body:
-                            has_all_requirments = False
+                    if match.query in full_text:
+                        has_all_requirments = True
+                        for extra in match.required_tags:
+                            if not extra.lower() in full_text:
+                                has_all_requirments = False
 
-                    if not has_all_requirments:
-                        continue
+                        if not has_all_requirments:
+                            continue
 
-                    fe = self.fg.add_entry()
-                    fe.id(entry['link'])
-                    fe.link(href=entry['link'])
-                    fe.description(description=entry.get('description'))
-                    fe.title(entry['title'])
-                    fe.summary(entry['summary'])
-                    fe.comments("CVEStack: Matches '{}'".format(match.query.lower().strip()))
-                    fe.updated(datetime.datetime(*entry['updated_parsed'][:7], tzinfo=datetime.tzinfo()))
+                        fe = self.fg.add_entry()
+                        fe.id(entry['link'])
+                        fe.link(href=entry['link'])
+                        fe.description(description=entry.get('description'))
+                        fe.title(entry['title'])
+                        fe.summary(entry['summary'])
+                        fe.comments("CVEStack: Matches '{}'".format(match.query.lower().strip()))
+                        fe.updated(datetime.datetime(*entry['updated_parsed'][:7], tzinfo=datetime.tzinfo()))
         rss = self.fg.rss_str(pretty=True)
 
         # re-init/clear the feed gen
@@ -62,9 +63,13 @@ class CVEFeedGenerator:
         return rss
 
 
-def get_cve_generator(pattern_file, left_padding=True, right_padding=False, strip_spaces=False):
-    cve_feed_gen = CVEFeedGenerator(left_padding=left_padding, right_padding=right_padding, strip_spaces=strip_spaces)
-
+def get_cve_generator(config):
+    cve_feed_gen = CVEFeedGenerator(config)
+    left_padding = config.get('left_padding')
+    right_padding = config.get('right_padding')
+    strip_spaces = config.get('strip_spaces')
+    pattern_file = config.get('pattern_file')
+    
     with open(pattern_file) as f:
         requirements_contents = re.split('\r?\n', f.read())
         # Generates required version string
@@ -93,16 +98,8 @@ def get_cve_generator(pattern_file, left_padding=True, right_padding=False, stri
 
 if __name__ == '__main__':
     argparser = argparse.ArgumentParser(description='Parse a vulnerability feed and look for specific vendors')
-    argparser.add_argument('--pattern-file', '-f', default='.dependencies.txt', dest='pattern_file',
+    argparser.add_argument('--config-file', '-f', default='config.yml', dest='config_file',
                            help='Sets the file to pull patterns from (defaults to ".dependencies.txt")')
-    argparser.add_argument('--strip-spaces', '-s', default=False, dest='strip_spaces', action='store_true',
-                           help='Sets if spaces should be stripped from patterns (Defaults to false)')
-    argparser.add_argument('--left-pad', '-lp', default=True, dest='left_pad_patterns', action='store_true',
-                           help='Sets if patterns should be prefixed with a left space (Defaults to true)')
-    argparser.add_argument('--right-pad', '-rp', default=False, dest='right_pad_patterns', action='store_true',
-                           help='Sets if patterns should be suffixed with a right space (Defaults to false)')
-    argparser.add_argument('--port', '-p', default=8088, dest='port', type=int,
-                           help='Sets the listening port (defaults to 8088)')
     args = argparser.parse_args()
 
     class FeedHandler(BaseHTTPRequestHandler):
@@ -115,8 +112,12 @@ if __name__ == '__main__':
             self.end_headers()
             now = datetime.datetime.now()
             if self.last_update is None or (now - FeedHandler.last_update).total_seconds() > 10:
-                FeedHandler.cve_rss = (get_cve_generator(args.pattern_file, left_padding=args.left_pad_patterns, right_padding=args.right_pad_patterns, strip_spaces=args.strip_spaces)
-                                       .generate_feed())
+                with open(args.config_file, 'r') as stream:
+                    try:
+                        config = yaml.safe_load(stream)
+                        FeedHandler.cve_rss = (get_cve_generator(config).generate_feed())
+                    except yaml.YAMLError as exc:
+                        print(exc)
                 self.log_message("%s", "Reloaded CVE feeds and patterns.")
                 self.wfile.write(FeedHandler.cve_rss)
                 FeedHandler.last_update = now
@@ -124,8 +125,14 @@ if __name__ == '__main__':
                 if FeedHandler.cve_rss:
                     self.wfile.write(FeedHandler.cve_rss)
 
-
-    server = HTTPServer(('', args.port), FeedHandler)
+    
+    with open(args.config_file, 'r') as stream:
+        try:
+            config = yaml.safe_load(stream)
+            FeedHandler.cve_rss = (get_cve_generator(config).generate_feed())
+        except yaml.YAMLError as exc:
+            print(exc)
+    server = HTTPServer((config.get('listening_host'), config.get('port')), FeedHandler)
     try:
         server.serve_forever()
     except KeyboardInterrupt:

@@ -11,10 +11,11 @@ class Query:
         if required_tags is None:
             required_tags = []
         if left_padded:
-            self.query = ' {}'.format(query.lstrip())
+            query = ' {}'.format(query.lstrip())
         if right_padded:
-            self.query = u'{} '.format(query.rstrip())
+            query = u'{} '.format(query.rstrip())
         if strip_padding:
-            self.query = query.strip()
+            query = query.strip()
+        self.query = query
         self.query = self.query.lower()
         self.required_tags = required_tags
