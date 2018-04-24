@@ -5,15 +5,22 @@ rebroadcast_description: "Lists known vulnerabilities matching filters"
 rebroadcast_self: https://web.nvd.nist.gov/view/vuln/search
 rebroadcast_id: https://nvd.nist.gov/feeds/xml/cve/misc/nvd-rss.xml
 
-# Feeds to pull from.
+# Feeds to pull from. Must have "title" and "description" fields set.
 feed_lists:
     - https://nvd.nist.gov/feeds/xml/cve/misc/nvd-rss.xml
     - http://seclists.org/rss/bugtraq.rss
 
+# The file to pull patterns from
 pattern_file: '.dependencies.txt'
+# Should we strip spaces? (increases false positives)
 strip_spaces: false
+# Should we pad with a left space? (increases false negatives)
 left_padding: false
+# Should we pad with a right space? (increases false negatives)
 right_padding: false
+
+### Server broadcast settings ###
+# Port to rebroadcast the feed on
 port: 8088
 
 # Defaults to localhost, change to '' to listen on all interfaces
