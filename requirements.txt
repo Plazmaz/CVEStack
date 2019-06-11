@@ -1,5 +1,4 @@
 feedparser==5.2.1
 dicttoxml==1.7.4
-feedgen
+requests
 pyyaml
-future==0.16.0

@@ -56,7 +56,8 @@ docs/_build/
 
 # PyBuilder
 target/
-
 \.idea/
-
+# Custom
+venv/
+*cve_cache
 \.dependencies\.txt

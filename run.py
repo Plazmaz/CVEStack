@@ -1,143 +1,35 @@
-import re
+import argparse
+import traceback
+from time import sleep
+
 import yaml
 
-import argparse
-import datetime
-from http.server import BaseHTTPRequestHandler, HTTPServer
-
-import feedparser
-from feedgen.feed import FeedGenerator
-
-from query import Query
-
-
-class CVEFeedGenerator:
-
-    def __init__(self, config):
-        self.config = config
-        self.desired_strings = []
-        self.strip_spaces = config.get('strip_spaces')
-        self.cve_feed_urls = config.get('feed_lists')
-        self._init_feed_gen()
-
-    def _init_feed_gen(self):
-        self.fg = FeedGenerator()
-        self.fg.link(href=self.config.get('rebroadcast_self'), rel='self')
-        self.fg.title(self.config.get('rebroadcast_title'))
-        self.fg.description(self.config.get('rebroadcast_description'))
-        self.fg.id(self.config.get('rebroadcast_id`'))
-
-    def add_desired_string(self, string):
-        self.desired_strings.append(string)
-
-    def generate_feed(self):
-        found_titles = []
-        for cve_feed_url in self.cve_feed_urls:
-            parsed_feed = feedparser.parse(cve_feed_url)
-            for entry in parsed_feed.entries:
-                matches = []
-                for match in self.desired_strings:
-                    full_text = entry['title'].lower() + '\n' + entry['summary'].lower()
-
-                    if match.query in full_text:
-                        has_all_requirments = True
-                        for extra in match.required_tags:
-                            if not extra.lower() in full_text:
-                                has_all_requirments = False
-
-                        if not has_all_requirments:
-                            continue
-                        matches.append(match.query.lower().strip())
-                if len(matches) == 0:
-                    continue
-
-                fe = self.fg.add_entry()
-                fe.id(entry['link'])
-                fe.link(href=entry['link'])
-                fe.description(description=entry.get('description'))
-                fe.title(entry['title'])
-                fe.summary(entry['summary'])
-                fe.comments("CVEStack: Matches '{}'".format(', '.join(matches)))
-                fe.updated(datetime.datetime(*entry['updated_parsed'][:7], tzinfo=datetime.tzinfo()))
-        rss = self.fg.rss_str(pretty=True)
-
-        # re-init/clear the feed gen
-        self._init_feed_gen()
-        return rss
-
-
-def get_cve_generator(config):
-    cve_feed_gen = CVEFeedGenerator(config)
-    strip_spaces = config.get('strip_spaces')
-    pattern_file = config.get('pattern_file')
-    
-    with open(pattern_file) as f:
-        requirements_contents = re.split('\r?\n', f.read())
-        # Generates required version string
-        requirements_output = []
-        for requirement in requirements_contents:
-            if len(requirement.strip()) == 0:
-                continue
-            if '==' in requirement:
-                requirements_output.append(requirement.split('=='))
-            else:
-                requirements_output.append([requirement])
-
-        for requirement in requirements_output:
-            if not requirement or len(requirement) == 0:
-                continue
-            left_padding = requirement[0].startswith('__')
-            right_padding = requirement[0].endswith('__')
-            if len(requirement) > 1:
-                cve_feed_gen.add_desired_string(Query(requirement[0], required_tags=requirement[1:],
-                                                      left_padded=left_padding, right_padded=right_padding,
-                                                      strip_padding=strip_spaces))
-            else:
-                cve_feed_gen.add_desired_string(Query(requirement[0], left_padded=left_padding, right_padded=right_padding,
-                                                      strip_padding=strip_spaces))
-
-    return cve_feed_gen
-
+from posters import CVEPoster, POSTER_TYPES
 
 if __name__ == '__main__':
     argparser = argparse.ArgumentParser(description='Parse a vulnerability feed and look for specific vendors')
     argparser.add_argument('--config-file', '-f', default='config.yml', dest='config_file',
                            help='Sets the file to pull patterns from (defaults to ".dependencies.txt")')
     args = argparser.parse_args()
+    post_interval = 5
 
-    class FeedHandler(BaseHTTPRequestHandler):
-        last_update = None
-        cve_rss = None
-
-        def do_GET(self):
-            self.send_response(200)
-            self.send_header("Content-Type", "application/rss+xml")
-            self.end_headers()
-            now = datetime.datetime.now()
-            if self.last_update is None or (now - FeedHandler.last_update).total_seconds() > 10:
-                with open(args.config_file, 'r') as stream:
-                    try:
-                        config = yaml.safe_load(stream)
-                        FeedHandler.cve_rss = (get_cve_generator(config).generate_feed())
-                    except yaml.YAMLError as exc:
-                        print(exc)
-                self.log_message("%s", "Reloaded CVE feeds and patterns.")
-                self.wfile.write(FeedHandler.cve_rss)
-                FeedHandler.last_update = now
-            else:
-                if FeedHandler.cve_rss:
-                    self.wfile.write(FeedHandler.cve_rss)
-
-    
-    with open(args.config_file, 'r') as stream:
-        try:
-            config = yaml.safe_load(stream)
-            FeedHandler.cve_rss = (get_cve_generator(config).generate_feed())
-        except yaml.YAMLError as exc:
-            print(exc)
-    server = HTTPServer((config.get('listening_host'), config.get('port')), FeedHandler)
-    try:
-        server.serve_forever()
-    except KeyboardInterrupt:
-        pass
-    server.server_close()
+    while True:
+        with open(args.config_file, 'r') as stream:
+            try:
+                config = yaml.safe_load(stream)
+                outputs = config.get('outputs')
+                if not outputs:
+                    raise Exception('Invalid configuration! You must set at least one output.')
+                cve_posters = []
+                for output in outputs:
+                    output = output.lower()
+                    if output not in POSTER_TYPES:
+                        raise Exception('Invalid configuration! Unrecognized output type "{}". Valid types are: {}'
+                                        .format(output, POSTER_TYPES.keys()))
+                    cve_posters.append(POSTER_TYPES[output](config))
+                post_interval = config.get('post_interval')
+                for poster in cve_posters:
+                    poster.post_to_feed_if_needed(config)
+            except Exception as e:
+                traceback.print_exc(e)
+        sleep(post_interval * 60)
