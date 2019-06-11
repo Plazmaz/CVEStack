@@ -15,6 +15,9 @@ syslog_address: '/dev/log'
 # Posts every 5 minutes by default
 post_interval: 5
 
+# Defines if dependencies are ignored, vs included
+dependencies_are_ignored: false
+
 # Locations to push data
 outputs:
     - syslog

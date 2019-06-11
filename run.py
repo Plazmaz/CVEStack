@@ -4,7 +4,7 @@ from time import sleep
 
 import yaml
 
-from posters import CVEPoster, POSTER_TYPES
+from posters import POSTER_TYPES
 
 if __name__ == '__main__':
     argparser = argparse.ArgumentParser(description='Parse a vulnerability feed and look for specific vendors')

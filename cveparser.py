@@ -64,6 +64,7 @@ class CVEParser(object):
         self.required_queries = []
         self.strip_spaces = config.get('strip_spaces')
         self.cve_feed_urls = config.get('feed_lists')
+        self.inverted = config.get('dependencies_are_ignored')
 
     def add_desired_query(self, query):
         self.required_queries.append(query)
@@ -78,6 +79,10 @@ class CVEParser(object):
 
                     if match.matches(full_text):
                         matches.append(match.query.lower().strip())
-                if len(matches) == 0:
+                # Inverted means any matches = no go
+                if self.inverted and len(matches) > 0:
+                    continue
+
+                if not self.inverted and len(matches) == 0:
                     continue
                 yield CVEEntry(entry, matches)
