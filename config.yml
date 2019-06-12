@@ -29,8 +29,10 @@ post_interval: 5
 dependencies_are_ignored: false
 
 # Locations to push data
+# Options: log, slack, rss
+# Can be more than one of these.
 outputs:
-    - syslog
+    - log
 
 # The file to pull patterns from
 pattern_file: '.dependencies.txt'

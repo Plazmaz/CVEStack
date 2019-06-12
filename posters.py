@@ -225,6 +225,6 @@ class SlackPoster(CVEPoster):
 
 POSTER_TYPES = {
     'slack': SlackPoster,
-    'syslog': LoggingPoster,
+    'log': LoggingPoster,
     'rss': RSSPoster
 }
