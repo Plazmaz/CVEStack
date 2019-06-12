@@ -130,25 +130,29 @@ class RSSPoster(CVEPoster):
         """
 
 
-class SyslogPoster(CVEPoster):
+class LoggingPoster(CVEPoster):
 
     def __init__(self, config):
-        super().__init__(config, 'syslog')
+        super().__init__(config, 'log')
+        self.log_location = config.get('log_location')
 
         self.logger = logging.getLogger('CVEStack')
-        self.handler_address = config.get('syslog_address')
-        self.handler = SysLogHandler(address=self.handler_address)
         self.logger.setLevel(logging.DEBUG)
-        self.logger.addHandler(self.handler)
+        if self.config.get('log_enable_syslog', False):
+            self.handler = SysLogHandler(address=self.log_location)
+            self.logger.addHandler(self.handler)
+        else:
+            logging.basicConfig(filename=self.log_location,
+                                format='[%(asctime)s] [%(levelname)s] %(message)s')
         self.post_to_feed_if_needed(config)
 
     def _reload_config(self, config):
-        if config.get('syslog_address') != self.handler_address:
+        new_log_location = config.get('log_location')
+        if self.config.get('log_enable_syslog', False) and new_log_location != self.log_location:
             self.logger = logging.getLogger('CVEStack')
-            self.handler_address = config.get('syslog_address')
-            self.handler = SysLogHandler(address=self.handler_address)
-            self.logger.setLevel(logging.DEBUG)
+            self.handler = SysLogHandler(address=self.log_location)
             self.logger.addHandler(self.handler)
+        self.log_location = new_log_location
 
     def post(self, config, cve):
         self.logger.info(str(cve))
@@ -221,6 +225,6 @@ class SlackPoster(CVEPoster):
 
 POSTER_TYPES = {
     'slack': SlackPoster,
-    'syslog': SyslogPoster,
+    'syslog': LoggingPoster,
     'rss': RSSPoster
 }

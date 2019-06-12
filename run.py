@@ -9,7 +9,7 @@ from posters import POSTER_TYPES
 if __name__ == '__main__':
     argparser = argparse.ArgumentParser(description='Parse a vulnerability feed and look for specific vendors')
     argparser.add_argument('--config-file', '-f', default='config.yml', dest='config_file',
-                           help='Sets the file to pull patterns from (defaults to ".dependencies.txt")')
+                           help='Sets the location of the configuration file (defaults to "config.yml")')
     args = argparser.parse_args()
     post_interval = 5
 
