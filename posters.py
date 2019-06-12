@@ -3,12 +3,21 @@ import logging
 import os
 import re
 from abc import ABC, abstractmethod
+from datetime import datetime
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from logging.handlers import SysLogHandler
+from socketserver import ThreadingMixIn
+from threading import Thread
 
 import requests
+from feedgen.feed import FeedGenerator
 
 from cveparser import CVEParser
 from query import Query
+
+
+class ThreadingSimpleServer(ThreadingMixIn, HTTPServer):
+    pass
 
 
 def get_cve_generator(config):
@@ -34,6 +43,7 @@ def get_cve_generator(config):
 class CVEPoster(ABC):
 
     def __init__(self, config, name, formatter_func=None):
+        self.config = config
         self.formatter_func = formatter_func
         self.cve_list = None
         self.old_cve_list = None
@@ -72,6 +82,52 @@ class CVEPoster(ABC):
             self.old_cve_list = self.cve_list
             with open(self.cache_file, 'w+') as f:
                 f.write(json.dumps([str(c) for c in self.old_cve_list]))
+
+
+class RSSPoster(CVEPoster):
+    class RequestHandler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            self.send_response(200)
+            self.send_header("Content-Type", "application/rss+xml")
+            self.end_headers()
+            rss = RSSPoster.feedgen.rss_str(pretty=True)
+            self.wfile.write(rss)
+
+    feedgen = FeedGenerator()
+
+    def __init__(self, config):
+        super().__init__(config, 'rss')
+
+        self.server = ThreadingSimpleServer((config.get('rss_host'), config.get('rss_port')), self.RequestHandler)
+        self.feedgen.link(href=self.config.get('rss_self_link'), rel='self')
+        self.feedgen.title(self.config.get('rss_title'))
+        self.feedgen.description(self.config.get('rss_desc'))
+
+        self.feedgen.id(self.config.get('rss_id`'))
+        Thread(target=self.server.serve_forever).start()
+
+    def post(self, config, feed_item):
+        cve = feed_item.feed_entry
+        entry = self.feedgen.add_entry()
+        entry.id(cve.get('id'))
+        entry.link(href=cve.get('link'))
+        entry.title(cve.get('title'))
+        entry.description(cve.get('description'))
+        entry.summary(cve.get('summary'))
+        entry.updated(cve.get('updated'))
+        entry.pubDate(cve.get('created'))
+        entry.comments('Matched on \"{}\"'.format(feed_item.matched_on))
+
+        """
+        msg = self._gen_rich_message(author_name=config.get('slack_author'),
+                                     username=config.get('slack_username'),
+                                     title=cve.get('title'),
+                                     title_link=cve.get('link'),
+                                     text=cve.get('summary'),
+                                     disclosure_date=cve.get('updated', cve.get('created', 'Unknown')),
+                                     keywords_matched=','.join(entry.matched_on),
+                                     emoji=config.get('slack_emoji_icon'))
+        """
 
 
 class SyslogPoster(CVEPoster):
@@ -165,5 +221,6 @@ class SlackPoster(CVEPoster):
 
 POSTER_TYPES = {
     'slack': SlackPoster,
-    'syslog': SyslogPoster
+    'syslog': SyslogPoster,
+    'rss': RSSPoster
 }
