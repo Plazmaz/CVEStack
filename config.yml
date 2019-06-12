@@ -10,6 +10,8 @@ slack_webhook: "https://hooks.slack.com/services/XXXXXX/XXXXXXXXXXXXXXXXX"
 slack_emoji_icon: ":lock:"
 
 # Settings for syslog
+# Options: syslog, slack, rss
+# Can be more than one of these.
 syslog_address: '/dev/log'
 
 rss_title: 'CVEStack RSS Feed'
