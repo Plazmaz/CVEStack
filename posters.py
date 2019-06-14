@@ -51,9 +51,10 @@ class CVEPoster(ABC):
         if os.path.exists(self.cache_file) and os.path.isfile(self.cache_file):
             with open(self.cache_file) as f:
                 try:
-                    self.old_cve_list = json.loads(f.read())
-                except:
+                    self.old_cve_list = set(json.loads(f.read()))
+                except Exception as e:
                     self.old_cve_list = None
+                    print("Unable to load CVE cache file, defaulting to empty list.")
 
     @abstractmethod
     def post(self, config, cve):
@@ -68,10 +69,11 @@ class CVEPoster(ABC):
     def post_to_feed_if_needed(self, config):
         self._reload_config(config)
         self.cve_list = list(get_cve_generator(config).generate_feed())
+        cve_strs = set(str(c) for c in self.cve_list)
 
         print('Reloaded CVE feeds and patterns. Posting messages if necessary.')
         if self.old_cve_list:
-            diffed_list = list(set(self.cve_list) - set(self.old_cve_list))
+            diffed_list = list(cve_strs - self.old_cve_list)
             for item in diffed_list:
                 self.post(config, item)
         else:
@@ -79,9 +81,9 @@ class CVEPoster(ABC):
                 self.post(config, item)
 
         if self.cve_list:
-            self.old_cve_list = self.cve_list
+            self.old_cve_list = cve_strs
             with open(self.cache_file, 'w+') as f:
-                f.write(json.dumps([str(c) for c in self.old_cve_list]))
+                f.write(json.dumps(list(cve_strs)))
 
 
 class RSSPoster(CVEPoster):

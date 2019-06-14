@@ -1,6 +1,6 @@
 import re
 
-AND_QUERY_RE_STR = '\s*&\s*'
+AND_QUERY_RE_STR = '\\s*&\\s*'
 
 
 class Query:
