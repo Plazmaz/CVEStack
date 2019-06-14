@@ -1,5 +1,4 @@
 feedparser==5.2.1
-feedgen
-dicttoxml==1.7.4
-requests
-pyyaml
+feedgen==0.7.0
+requests==2.22.0
+pyyaml==5.1.1
