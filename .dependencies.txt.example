@@ -1,6 +1,8 @@
-linux==4.13
+linux & 4.13
 apache
 mysql
 maria
 mysqldb
 mariadb
+__py
+sql & -server
