@@ -145,7 +145,7 @@ class LoggingPoster(CVEPoster):
             self.logger.addHandler(self.handler)
         else:
             logging.basicConfig(filename=self.log_location,
-                                format='[%(asctime)s] [%(levelname)s] %(message)s')
+                                format=config.get('log_format', '[%(asctime)s] [%(levelname)s] %(message)s'))
         self.post_to_feed_if_needed(config)
 
     def _reload_config(self, config):
