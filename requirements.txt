@@ -1,4 +1,4 @@
 feedparser==5.2.1
-feedgen==0.7.0
+feedgen==0.9.0
 requests==2.22.0
 pyyaml==5.1.1
